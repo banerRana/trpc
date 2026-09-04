@@ -1,3 +1,5 @@
+import { emptyObject } from './utils';
+
 interface ProxyCallbackOptions {
   path: readonly string[];
   args: readonly unknown[];
@@ -33,6 +35,20 @@ function createInnerProxy(
     apply(_1, _2, args) {
       const lastOfPath = path[path.length - 1];
 
+      // React 19 may call valueOf / toString / toJSON when coercing a proxy
+      // to a primitive (e.g. during rendering or logging). Return a debug
+      // string so the coercion does not recurse into the proxy. This only
+      // triggers for direct calls (proxy.toString()), not for chained access
+      // (proxy.toString.query()), preserving route naming freedom.
+      if (
+        lastOfPath === 'valueOf' ||
+        lastOfPath === 'toString' ||
+        lastOfPath === 'toJSON'
+      ) {
+        const debugPath = path.slice(0, -1).join('.');
+        return `tRPC.proxy(${debugPath})`;
+      }
+
       let opts = { args, path };
       // special handling for e.g. `trpc.hello.call(this, 'there')` and `trpc.hello.apply(this, ['there'])
       if (lastOfPath === 'call') {
@@ -62,7 +78,7 @@ function createInnerProxy(
  */
 export const createRecursiveProxy = <TFaux = unknown>(
   callback: ProxyCallback,
-): TFaux => createInnerProxy(callback, [], Object.create(null)) as TFaux;
+): TFaux => createInnerProxy(callback, [], emptyObject()) as TFaux;
 
 /**
  * Used in place of `new Proxy` where each handler will map 1 level deep to another value.

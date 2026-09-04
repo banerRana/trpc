@@ -354,6 +354,7 @@ export function createTRPCOptionsProxy<
             ctx: ctx,
             type: type,
             signal: undefined,
+            batchIndex: 0,
           }),
         );
       }
@@ -467,6 +468,7 @@ export function createTRPCOptionsProxy<
         return trpcMutationOptions({
           opts: arg1,
           path,
+          prefix,
           queryClient: opts.queryClient,
           mutate: callIt('mutation'),
           overrides: opts.overrides?.mutations,

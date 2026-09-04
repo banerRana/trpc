@@ -86,11 +86,10 @@ test('input error', async () => {
   expect(clientError.shape.message).toMatchInlineSnapshot(`
     "[
       {
-        "code": "invalid_type",
         "expected": "string",
-        "received": "number",
+        "code": "invalid_type",
         "path": [],
-        "message": "Expected string, received number"
+        "message": "Invalid input: expected string, received number"
       }
     ]"
   `);
@@ -145,7 +144,7 @@ describe('formatError()', () => {
             data: {
               ...shape.data,
               type: 'zod' as const,
-              errors: error.cause.errors,
+              errors: error.cause.issues,
             },
           };
         }
@@ -170,22 +169,21 @@ describe('formatError()', () => {
     );
     delete clientError.data.stack;
     expect(clientError.data).toMatchInlineSnapshot(`
-Object {
-  "code": "BAD_REQUEST",
-  "errors": Array [
-    Object {
-      "code": "invalid_type",
-      "expected": "string",
-      "message": "Expected string, received number",
-      "path": Array [],
-      "received": "number",
-    },
-  ],
-  "httpStatus": 400,
-  "path": "err",
-  "type": "zod",
-}
-`);
+      Object {
+        "code": "BAD_REQUEST",
+        "errors": Array [
+          Object {
+            "code": "invalid_type",
+            "expected": "string",
+            "message": "Invalid input: expected string, received number",
+            "path": Array [],
+          },
+        ],
+        "httpStatus": 400,
+        "path": "err",
+        "type": "zod",
+      }
+    `);
     expect(clientError.shape).toMatchInlineSnapshot(`
       Object {
         "code": -32600,
@@ -195,9 +193,8 @@ Object {
             Object {
               "code": "invalid_type",
               "expected": "string",
-              "message": "Expected string, received number",
+              "message": "Invalid input: expected string, received number",
               "path": Array [],
-              "received": "number",
             },
           ],
           "httpStatus": 400,
@@ -206,11 +203,10 @@ Object {
         },
         "message": "[
         {
-          "code": "invalid_type",
           "expected": "string",
-          "received": "number",
+          "code": "invalid_type",
           "path": [],
-          "message": "Expected string, received number"
+          "message": "Invalid input: expected string, received number"
         }
       ]",
       }
@@ -545,5 +541,42 @@ describe('links have meta data about http failures', async () => {
 
     expect(error).toBeInstanceOf(TRPCClientError);
     expect(error).toBeInstanceOf(MyCustomError);
+  });
+});
+
+describe('onError', () => {
+  test('streaming onError should unwrap { error, path } and preserve error message and path', async () => {
+    const t = initTRPC.create();
+
+    const router = t.router({
+      failingIterable: t.procedure.query(async function* () {
+        yield 1;
+        throw new Error('stream broke');
+      }),
+    });
+
+    await using ctx = testServerAndClientResource(router);
+
+    // Act
+    const iterable = await ctx.client.failingIterable.query();
+    const aggregated: Array<unknown> = [];
+    const error = await waitError(
+      async () => {
+        for await (const value of iterable) {
+          aggregated.push(value);
+        }
+      },
+      TRPCClientError<typeof router>,
+    );
+
+    expect(aggregated).toEqual([1]);
+    expect(error.message).toBe('stream broke');
+    expect(ctx.onErrorSpy.mock.calls.length).toBe(1);
+
+    const serverErrorOpts = ctx.onErrorSpy.mock.calls[0]![0];
+    expect(serverErrorOpts.error).toBeInstanceOf(TRPCError);
+    expect(serverErrorOpts.error.message).toBe('stream broke');
+    expect(serverErrorOpts.error.cause).toBeInstanceOf(Error);
+    expect(serverErrorOpts.error.cause!.message).toBe('stream broke');
   });
 });

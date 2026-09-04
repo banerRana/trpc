@@ -13,6 +13,8 @@ export {
   createRecursiveProxy as createTRPCRecursiveProxy,
   type inferProcedureInput,
   type inferProcedureOutput,
+  type inferSubscriptionInput,
+  type inferSubscriptionOutput,
   type inferProcedureBuilderResolverOptions,
   type inferRouterError,
   type inferRouterInputs,
@@ -77,6 +79,10 @@ export {
    * @internal
    */
   type UnsetMarker as TRPCUnsetMarker,
+  /**
+   * @internal
+   */
+  type Unwrap as TRPCUnwrap,
 } from '../../unstable-core-do-not-import';
 
 export type {

@@ -45,10 +45,12 @@ export default defineConfig({
     snapshotFormat: {
       printBasicPrototype: true,
     },
+    projects: ['./packages/*'],
     coverage: {
       provider: 'istanbul',
       include: ['**/src/**'],
       exclude: [
+        '**/coverage/**',
         '**/www/**',
         '**/examples/**',
         // skip codecov for experimental features
@@ -57,16 +59,11 @@ export default defineConfig({
         '**/server/src/adapters/next-app-dir/**',
         // Skip codecov for codemod package
         '**/upgrade/src/**',
+        '**/vendor/**',
       ],
     },
-    poolOptions: {
-      threads: {
-        useAtomics: !!process.env['CI'],
-      },
-      forks: {
-        execArgv: ['--expose-gc'],
-      },
-    },
+    execArgv: ['--expose-gc'],
+    restoreMocks: true,
     retry: process.env['CI'] ? 2 : 0,
   },
   resolve: {
